@@ -90,6 +90,27 @@ object Par {
 
   def sortPar(parList: Par[List[Int]]): Par[List[Int]] = map(parList)(_.sorted)
 
+  def sequence_simple[A](l: List[Par[A]]): Par[List[A]] =
+    l.foldRight[Par[List[A]]](unit(List()))((h, t) => map2(h, t)(_ :: _))
+
+  def sequenceRight[A](as: List[Par[A]]): Par[List[A]] =
+    as match {
+      case Nil => unit(Nil)
+      case h :: t => map2(h, fork(sequence(t)))(_ :: _)
+    }
+
+  def sequenceBalanced[A](as: IndexedSeq[Par[A]]): Par[IndexedSeq[A]] = fork {
+    if (as.isEmpty) unit(Vector())
+    else if (as.length == 1) map(as.head)(a => Vector(a))
+    else {
+      val (l, r) = as.splitAt(as.length / 2)
+      map2(sequenceBalanced(l), sequenceBalanced(r))(_ ++ _)
+    }
+  }
+
+  def sequence[A](as: List[Par[A]]): Par[List[A]] =
+    map(sequenceBalanced(as.toIndexedSeq))(_.toList)
+
   def sum(ints: IndexedSeq[Int]): Int = {
     if (ints.size <= 1) {
       ints.headOption.getOrElse(0)
