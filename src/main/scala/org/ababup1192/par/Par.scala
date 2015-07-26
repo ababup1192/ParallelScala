@@ -111,6 +111,12 @@ object Par {
   def sequence[A](as: List[Par[A]]): Par[List[A]] =
     map(sequenceBalanced(as.toIndexedSeq))(_.toList)
 
+  def parMap[A, B](ps: List[A])(f: A => B): Par[List[B]] =
+    fork {
+      val fbs: List[Par[B]] = ps.map(asyncF(f))
+      sequence(fbs)
+    }
+
   def sum(ints: IndexedSeq[Int]): Int = {
     if (ints.size <= 1) {
       ints.headOption.getOrElse(0)
