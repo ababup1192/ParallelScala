@@ -59,6 +59,8 @@ object Par {
 
   def unit[A](a: A): Par[A] = (es: ExecutorService) => UnitFuture(a)
 
+  def lazyUnit[A](a: => A): Par[A] = fork(unit(a))
+
   private case class UnitFuture[A](get: A) extends Future[A] {
     def isDone = true
 
@@ -76,10 +78,17 @@ object Par {
       Map2Future(af, bf, f)
     }
 
+  def map[A, B](pa: Par[A])(f: A => B): Par[B] =
+    map2(pa, unit(()))((a, _) => f(a))
+
   def fork[A](a: Par[A]): Par[A] =
     es => es.submit(new Callable[A] {
       override def call: A = a(es).get
     })
+
+  def asyncF[A, B](f: A => B): A => Par[B] = a => lazyUnit(f(a))
+
+  def sortPar(parList: Par[List[Int]]): Par[List[Int]] = map(parList)(_.sorted)
 
   def sum(ints: IndexedSeq[Int]): Int = {
     if (ints.size <= 1) {
